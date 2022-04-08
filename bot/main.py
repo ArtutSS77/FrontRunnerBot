@@ -1,6 +1,8 @@
 import json
+import time
 
 from web3 import Web3
+from calculations import *
 
 w3 = Web3(Web3.HTTPProvider("http://62.113.114.85/4f5d85e2-99cd-4bd7-8f38-6a438ea18d79"))
 pending_filter = w3.eth.filter('pending')
@@ -21,17 +23,6 @@ uniswap_v2_factory_abi = json.loads(open("../artifacts/contracts/IUniswapV2Facto
 uniswap_v2_factory = w3.eth.contract(address="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", abi=uniswap_v2_factory_abi)
 
 uniswap_v2_pair_abi = json.loads(open("../artifacts/contracts/IUniswapV2Pair.sol/IUniswapV2Pair.json").read())["abi"]
-
-
-def calc_amount_out(amount_in, reserve_in, reserve_out):
-	amount_in_with_fee = amount_in * 997
-	numerator = amount_in_with_fee * reserve_out
-	denominator = reserve_in * 1000 + amount_in_with_fee
-	return int(numerator / denominator)
-
-
-def calc_attack_slippage(amount_in, reserve_in, reserve_out):
-
 
 
 def attack(tx):
@@ -69,23 +60,52 @@ def attack(tx):
 	else:
 		amount_out = calc_amount_out(token1_amount, token1_reserve, token0_reserve)
 		slippage = token0_amount / amount_out
-
 	print(slippage)
+	if token0_in:
+		attacker_amount_in = calc_attack_amount_in(token0_amount, token1_amount, token0_reserve, token1_reserve)
+		attacker_amount_out = int(calc_amount_out(attacker_amount_in, token0_reserve, token1_reserve) * 0.995)
+		attacker_amount_in = int(calc_amount_in(attacker_amount_out, token0_reserve, token1_reserve) * 1.005)
+		print("Token0 reserve", token0_reserve)
+		print("Token1 reserve", token1_reserve)
+		print("Attacker amount IN:", attacker_amount_in)
+		print("Attacker amount OUT:", attacker_amount_out)
+		revenue = int(calc_revenue(attacker_amount_in, token0_amount, attacker_amount_out, token1_amount, token0_reserve, token1_reserve))
+		print("Revenue", revenue/1e18)
+	else:
+		attacker_amount_in = calc_attack_amount_in(token1_amount, token0_amount, token1_reserve, token0_reserve)
+		attacker_amount_out = int(calc_amount_out(attacker_amount_in, token1_reserve, token0_reserve) * 0.995)
+		attacker_amount_in = int(calc_amount_in(attacker_amount_out, token1_reserve, token0_reserve) * 1.005)
+		print("Token0 reserve", token0_reserve)
+		print("Token1 reserve", token1_reserve)
+		print("Attacker amount IN:", attacker_amount_in)
+		print("Attacker amount OUT:", attacker_amount_out)
+		revenue = int(calc_revenue(attacker_amount_in, token1_amount, attacker_amount_out, token0_amount, token1_reserve, token0_reserve) * 0.995)
+		print("Revenue", revenue/1e18)
 
+	print("PROFIT:", (revenue - attacker_amount_in) / 1e18)
 
-	encoded_bytes = uniswap.encodeABI(fn_name="swapExactTokensForTokens", args=[decoded_data[1]["amountIn"], decoded_data[1]["amountOutMin"], decoded_data[1]["path"], attacker_account.address])
+	encoded_bytes = uniswap.encodeABI(fn_name="swapTokensForExactTokens", args=[attacker_amount_out, attacker_amount_in, decoded_data[1]["path"], attacker_account.address])
 	print(bytes.fromhex((encoded_bytes[2:len(encoded_bytes)])))
 	multi_attack = multicall.functions.multicall(multicall_data[1]["deadline"], [bytes.fromhex((encoded_bytes[2:len(encoded_bytes)]))]).buildTransaction({
 		'from': attacker_account.address,
 		'nonce': w3.eth.getTransactionCount(attacker_account.address, 'pending'),
 		'gas': 300000,
 		'gasPrice': tx['gasPrice'] * 2,
-		'value': decoded_data[1]["amountIn"]
+		'value': attacker_amount_in
 	})
 	signed_multi_attack = attacker_account.signTransaction(multi_attack)
 	tx_hash = w3.eth.sendRawTransaction(signed_multi_attack.rawTransaction)
 	print("Buying: ", tx_hash.hex())
-	w3.eth.wait_for_transaction_receipt(tx_hash)
+	encoded_sell = uniswap.encodeABI(fn_name="swapExactTokensForTokens", args=[attacker_amount_out, revenue, [decoded_data[1]["path"][1], decoded_data[1]["path"][0]], attacker_account.address])
+	multi_sell = multicall.functions.multicall(multicall_data[1]["deadline"], [bytes.fromhex((encoded_sell[2:len(encoded_sell)]))]).buildTransaction({
+		'from': attacker_account.address,
+		'nonce': w3.eth.getTransactionCount(attacker_account.address, 'pending'),
+		'gas': 300000,
+		'gasPrice': int(tx['gasPrice'] * 0.995),
+	})
+	signed_multi_sell = attacker_account.signTransaction(multi_sell)
+	tx_hash = w3.eth.sendRawTransaction(signed_multi_sell.rawTransaction)
+	print("Selling: ", tx_hash.hex())
 
 
 while True:
