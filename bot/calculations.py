@@ -14,7 +14,7 @@ def calc_amount_in(amount_out, reserve_in, reserve_out):
 
 def calc_revenue(attacker_amount_in, victim_amount_in, attacker_amount_out, victim_amount_out, reserve_in, reserve_out):
     resulting_reserve_in = reserve_in + attacker_amount_in + victim_amount_in
-    resulting_reserve_out = reserve_out - attacker_amount_out - attacker_amount_in
+    resulting_reserve_out = reserve_out - attacker_amount_out - victim_amount_out
     print(attacker_amount_in, victim_amount_in, attacker_amount_out, victim_amount_out, reserve_in, reserve_out)
     print(resulting_reserve_in)
     print(resulting_reserve_out)
