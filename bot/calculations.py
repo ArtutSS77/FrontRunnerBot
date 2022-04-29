@@ -33,5 +33,5 @@ def calc_attack_amount_in(victim_amount_in, victim_amount_out, reserve_in, reser
 
 
 def calc_attack_amount_out(victim_amount_in, victim_amount_out, reserve_in, reserve_out):
-    attacker_amount_out = (-victim_amount_in * victim_amount_out + 2 * victim_amount_in * reserve_out + 0.00301808 * reserve_in * victim_amount_out - math.sqrt(math.pow(victim_amount_in * victim_amount_out - 2 * victim_amount_in * reserve_out - 0.00301808 * reserve_in * victim_amount_out, 2) - 4 * victim_amount_in * (victim_amount_in * reserve_out * reserve_out - 1.00301 * reserve_in * victim_amount_out * reserve_out - victim_amount_in * victim_amount_out * reserve_out))) / (2 * victim_amount_in)
+    attacker_amount_out = ((-victim_amount_in * victim_amount_out + 2 * victim_amount_in * reserve_out + 0.00301808 * reserve_in * victim_amount_out) - math.sqrt(math.pow(victim_amount_in * victim_amount_out - 2 * victim_amount_in * reserve_out - 0.00301808 * reserve_in * victim_amount_out, 2) - 4 * victim_amount_in * (victim_amount_in * reserve_out * reserve_out - 1.00301 * reserve_in * victim_amount_out * reserve_out - victim_amount_in * victim_amount_out * reserve_out))) / (2 * victim_amount_in)
     return int(attacker_amount_out)
